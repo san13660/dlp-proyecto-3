@@ -1,7 +1,7 @@
 from statics import concat_symbol, epsilon_symbol
 from tree import Node
 from automaton import State, Transition, AF
-from file_parser import Token
+from atg_reader import Token
 
 def find_node_stuff(node, symbol_ids):
     if(node.is_leaf()):

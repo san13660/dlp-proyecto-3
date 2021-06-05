@@ -23,15 +23,16 @@ class Token():
         self.is_keyword = is_keyword
         self.except_keywords = except_keywords
         self.regex = regex
+        self.value = ''
 
-    def __str__(self):
+    def __repr__(self):
         string_regex = ''
         for r in self.regex:
             if(type(r) is int):
                 string_regex += chr(r)
             else:
                 string_regex += r
-        return 'ID:{} | PRIORITY:{} | REGEX:{}'.format(self.id, self.priority, repr(string_regex))
+        return '(ID: {} | VALUE: {})'.format(self.id, self.value)
 
 class CharacterSet:
     def __init__(self, id):
@@ -66,6 +67,12 @@ class CharacterSet:
         for i in range(start, end+1):
             self.include.add(i)
 
+class Function:
+    def __init__(self, id):
+        self.id = id
+        self.code = ''
+        self.first_pos = set()
+        self.raw = ''
 
 def create_keyword(id, string, token_priority):
     print('KEYWORD\n{}: {}'.format(id, string))
@@ -223,7 +230,6 @@ def create_token_definition(id, string, character_sets, token_priority):
                     regex.append(')')
                     buffer = ''
     
-    
     token = Token(id, token_priority, regex, except_keywords=except_keywords)
     print(token)
     print('')
@@ -237,7 +243,7 @@ def gen_line(content, level):
     line += content
     return line
 
-def gen_function(function_name, content, tokens):
+def gen_function(function_name, content, tokens, functions):
     function_name = function_name.strip()
     if('<' in function_name and '>' in function_name):
         function_name = function_name.replace('<','(')
@@ -249,15 +255,15 @@ def gen_function(function_name, content, tokens):
 
     output = 'def ' + function_name + ':\n'
 
-    found_tokens, lines = ccc(content, tokens, 1)
+    found_tokens, lines = recursive_build_function(content, tokens, 1, functions)
 
     for line in lines:
         output += line
         output += '\n'
 
-    return output
+    return output, found_tokens
 
-def ccc(content, tokens, level):
+def recursive_build_function(content, tokens, level, functions, insert_ifs = False):
     global current_token_priority
 
     found_tokens = set()
@@ -267,6 +273,17 @@ def ccc(content, tokens, level):
     if(not content):
         return found_tokens, output
 
+    
+    if(insert_ifs and '|' not in content):
+        insert_ifs = False
+
+    if_index = -1
+    if(insert_ifs):
+        level += 1
+        if_index = len(output)
+        output.append(gen_line('if(',level-1))
+
+    if_conditions = 0
     inside_quotes = False
     inside_code = False
     code_buffer = ''
@@ -298,15 +315,19 @@ def ccc(content, tokens, level):
 
         if(c == '"'):
             if(inside_quotes):
-                print('New Token: {}'.format(new_token))
+                #print('New Token: {}'.format(new_token))
                 current_token_priority += 1
                 regex = []
                 for s in new_token:
                     regex.append(ord(s))
                 tokens.append(Token(new_token,current_token_priority, regex))
-                found_tokens.add(new_token)
                 new_line = gen_line("consume('{}')".format(new_token), level)
                 output.append(new_line)
+                if(if_conditions==0):
+                    found_tokens.add(new_token)
+                    if(insert_ifs):
+                        output[if_index] += "is_next_token('{}') or ".format(new_token)
+                    if_conditions += 1
                 new_token = ''
             inside_quotes = not inside_quotes
             continue
@@ -316,42 +337,75 @@ def ccc(content, tokens, level):
             continue
 
         if(c in '({['):
-            end = recc(content, i)
-            conditions, new_lines = ccc(content[i+1:end], tokens, level+1)
-            found_tokens.update(conditions)
-            line = 'while('
-            for condition in conditions:
-                line += "next_token == '{}'".format(condition)
-                line += ' or '
-            line = line[:-3]
-            line += '):'
-            line = gen_line(line, level)
-            output.append(line)
+            end = find_parenthesis_end(content, i)
+            new_level = level
+            if(c in'{['):
+                new_level += 1
+            conditions, new_lines = recursive_build_function(content[i+1:end], tokens, new_level, functions, True)
+            if(if_conditions == 0):
+                found_tokens.update(conditions)
+                if(c == '('):
+                    if_conditions += 1
+            if(c == '{'):
+                line = 'while('
+                for condition in conditions:
+                    line += "is_next_token('{}')".format(condition)
+                    line += ' or '
+                line = line[:-4]
+                line += '):'
+                line = gen_line(line, level)
+                output.append(line)
+            elif(c == '['):
+                line = 'if('
+                for condition in conditions:
+                    line += "is_next_token('{}')".format(condition)
+                    line += ' or '
+                line = line[:-4]
+                line += '):'
+                line = gen_line(line, level)
+                output.append(line)
             output += new_lines
             i = end
             continue
 
         if(c == '|'):
-            
+            if(not insert_ifs):
+                raise Exception("Error OR")
+            if(if_conditions == 0):
+                output[if_index] += "next_token == 'ANY'):"
+            else:
+                output[if_index] = output[if_index][:-4]
+                output[if_index] += '):'
+
+            if_index = len(output)
+            output.append(gen_line('elif(',level-1))
+            if_conditions = 0
+
             continue
 
         buffer += c
 
-        if(i+1 == len(content) or content[i+1] in '   \n()}{|"'):
+        if(i+1 == len(content) or content[i+1] in '   \n()}{[]|"'):
             buffer = buffer.strip()
             if(not buffer):
                 continue
             found = False
             for t in tokens:
                 if(t.id == buffer):
-                    found_tokens.add(t.id)
                     found = True
                     break
             if(found):
                 new_line = gen_line("consume('{}')".format(buffer), level)
+                if(if_conditions==0):
+                    found_tokens.add(t.id)
+                    if(insert_ifs):
+                        output[if_index] += "is_next_token('{}') or ".format(buffer)
+                    if_conditions += 1
             else:
                 buffer = buffer.strip()
+                f1_name = buffer[:].strip()
                 if('<' in buffer and '>' in buffer):
+                    f1_name = buffer[:buffer.index('<')]
                     buffer = buffer.replace('<','(')
                     buffer = buffer.replace('>',')')
                     buffer = buffer.replace('ref ','')
@@ -359,14 +413,38 @@ def ccc(content, tokens, level):
                 else:
                     buffer += '()'
                 new_line = gen_line(buffer, level)
+                if(if_conditions == 0):
+                    for f in functions:
+                        f2_name = f.id
+                        if('<' in f2_name):
+                            f2_name = f2_name[:f2_name.index('<')]
+  
+                        if(f1_name == f2_name):
+                            found_tokens.update(f.first_pos)
+                            
+
+                            if(insert_ifs):
+                                for fp in f.first_pos:
+                                    output[if_index] += "is_next_token('{}') or ".format(fp)
+                            break
+                    if_conditions += 1
             output.append(new_line)
 
             #print('Buffer: {}'.format(buffer))
             buffer = ''
+    if(insert_ifs):
+        if(if_index == 0):
+            output.pop(0)
+        else:
+            if(if_conditions > 0):
+                output[if_index] = output[if_index][:-4]
+                output[if_index] += '):'
+            else:
+                output[if_index] = gen_line('else:', level-1)
 
     return found_tokens, output
 
-def recc(content, start):
+def find_parenthesis_end(content, start):
     end = -1
     symbol = ''
     openings = 0
@@ -664,13 +742,21 @@ def parse_coco(content):
                 inside_code = False
             if(char == '.' and not open_quotes and not inside_code):
                 #parse_function(current_character, string_buffer, tokens)
-                out_file += '\n'
-                out_file += gen_function(current_character, string_buffer, tokens)
+
+                # GUARDAR TEXTO FUNCIONES, RECORRERLAS EN SENTIDO OPUESTO functions=[]
+                function_name = current_character.strip()
+                new_function = Function(function_name)
+                new_function.raw = string_buffer
+                functions.append(new_function)
                 string_buffer = ''
                 current_state = PRODUCTION_NAME
             else:
                 string_buffer += char
 
-    print(out_file)
+    for f in reversed(functions):
+        code_lines, first_pos = gen_function(f.id, f.raw, tokens, functions)
+        f.code = code_lines
+        f.first_pos = first_pos
+        print('{}: first_pos{}'.format(f.id, f.first_pos))
 
-    return tokens, ignore_set
+    return tokens, ignore_set, functions

@@ -1,6 +1,7 @@
 from statics import epsilon_symbol
+from atg_reader import Token
 
-def verify_token(state, afd, current_word):
+def verify_token(state, afd, current_word, show_prints):
     if(state in afd.final_states):
         matched_token = state.tokens[0]
         for token in state.tokens:
@@ -9,15 +10,22 @@ def verify_token(state, afd, current_word):
                 (not token.is_keyword and not token.except_keywords and matched_token.is_keyword) or
                 (token.is_keyword and matched_token.except_keywords)):
                 matched_token = token
-
-        print('TOKEN {} : {} {}'.format(matched_token.id, repr(current_word), '(KEYWORD)' if matched_token.is_keyword else ''))
+        new_token = Token(matched_token.id, matched_token.priority, matched_token.regex, matched_token.is_keyword, matched_token.except_keywords)
+        new_token.value = current_word
+        if(show_prints):
+            print('TOKEN {} : {} {}'.format(matched_token.id, repr(current_word), '(KEYWORD)' if matched_token.is_keyword else ''))
+        return new_token
     else:
-        print('INVALID TOKEN: {}'.format(repr(current_word)))
+        if(show_prints):
+            print('INVALID TOKEN: {}'.format(repr(current_word)))
+        return None
 
-def simulate_afd(afd, string):
+def simulate_afd(afd, string, show_prints):
     current_state = afd.initial_state
 
     current_word = ''
+
+    tokens = []
 
     i = 0
     while(i < len(string)):
@@ -33,13 +41,17 @@ def simulate_afd(afd, string):
             if(len(current_word) > 1):
                 i -= 1
                 current_word = current_word[:-1]
-            verify_token(current_state, afd, current_word)
+            matched_token = verify_token(current_state, afd, current_word, show_prints)
+            if(matched_token):
+                tokens.append(matched_token)
             current_word = ''
             current_state = afd.initial_state
         i += 1
     if(len(current_word) > 0):
-        verify_token(current_state, afd, current_word)
-    return True
+        matched_token = verify_token(current_state, afd, current_word, show_prints)
+        if(matched_token):
+            tokens.append(matched_token)
+    return tokens
 
 
 def recursive_simulation(afn, string, current_index, current_state, prev_e_states=[]):

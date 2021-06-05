@@ -24,24 +24,24 @@ white = blanco{blanco}.
 
 PRODUCTIONS
 
-Expr = {Stat ";"{white}}{white}".".
+Expr = {white}{Stat ";"{white}}{white}".".
 
 Stat = 							(.value = [0].)
 	Expression<value>			(.print("Resultado: " + str(value[0])).)
 	.
 
-Expression<result> =			(.result1,result2=[0].)
+Expression<result> =			(.result1, result2 = [0], [0].)
 	Term<result1>
-	{    "+"Term<result2>		(.result1[0]+=result2[0].)
-	   | "-"Term<result2>		(.result1[0]-=result2[0].)
-	}							(.result[0]=result1[0].)
+	{    "+"Term<result2>		(.result1[0] += result2[0].)
+	   | "-"Term<result2>		(.result1[0] -= result2[0].)
+	}							(.result[0] = result1[0].)
 	.
 
-Term<result>=					(.result1, result2 = [0].)
+Term<result>=					(.result1,result2 = [0],[0].)
 	Factor<result1>
-	{    "*"Factor<result2>		(.result1[0]*=result2[0].)
-	   | "/"Factor<result2>		(.result1[0]/=result2[0].)
-	}							(.result[0]=result1[0].)
+	{    "*"Factor<result2>		(.result1[0] *= result2[0].)
+	   | "/"Factor<result2>		(.result1[0] /= result2[0].)
+	}							(.result[0] = result1[0].)
 	.
 
 Factor<result> =				(.sign = 1.)
@@ -49,11 +49,11 @@ Factor<result> =				(.sign = 1.)
 	]
 	(Number<result>
 	 |"("Expression<result>")"
-	)							(.result[0]*=sign.)
+	)							(.result[0] *= sign.)
 	.
 
 Number<result> =	
 	(number				
-	|decnumber)					(.result[0] = double.Parse(LastToken.Value).)
+	|decnumber)					(.result[0] = float(get_last_token_value()).)
 	.
 END Double
