@@ -1,8 +1,8 @@
-# Proyecto - Diseño de lenguajes de programación
+# Proyecto 3 - Diseño de lenguajes de programación
 ### Christopher Sandoval 13660
 
 ## Link a video
-
+https://youtu.be/Ikdmbzidfv8
 
 ## Requerimientos
 ### Graphviz
@@ -12,13 +12,12 @@
 
 ## Ejecución
 python main.py <archivo.ATG>
-python scanner.py <entrada.txt>
+python parser.py <entrada.txt>
 
 ## Funcionamiento del programa
-El archivo main.py contiene la implementación del programa. En él se importan métodos de todos los demás archivos para realizar la funcionalidad del programa. Al ejecutar este archivo primero se le solicita al usuario a ingresar una expresión regular. Luego se crea el árbol que describe la estructura de la expresión regular con la función initialize_tree() y separate_children(). Este árbol luego se pasa a la función create_afn() que crea el autómata no determinista por el método de Thompson. Este autómata luego se envía en la función create_afd() y con esto se crea el autómata no determinista por medio del método de subconjuntos. Para realizar el autómata no determinista por medio del método directo primero se debe complementar el arbol creado anteriormente con las propiedades first_pos, last_pos y nullable. Para esto se llama al método find_tree_values() que encuentra recursivamente las propiedades de todos los nodos del árbol. Después con el árbol aumentado se llama al método create_direct_afd() que crea el autómata directo.
+El archivo main.py contiene la implementación del programa. En él se importan métodos de todos los demás archivos para realizar la funcionalidad del programa. Al ejecutar este archivo primero se le solicita al usuario el path del archivo ATG a leer. De este se extraen los tokens y keywords para construir el ADF. Luego se crea el árbol que describe la estructura de la expresión regular con la función initialize_tree() y separate_children(). Este árbol luego se pasa a la función create_afn() que crea el autómata no determinista por el método de Thompson. Este autómata luego se envía en la función create_afd() y con esto se crea el autómata no determinista por medio del método de subconjuntos. Para realizar el autómata no determinista por medio del método directo primero se debe complementar el arbol creado anteriormente con las propiedades first_pos, last_pos y nullable. Para esto se llama al método find_tree_values() que encuentra recursivamente las propiedades de todos los nodos del árbol. Después con el árbol aumentado se llama al método create_direct_afd() que crea el autómata directo. Luego se crean los archivos scanner.py y parser.py.
 
-
-El archivo main.py también realiza las simulaciones de los diferentes autómatas. Luego de crear los tres autómatas se le solicita al usuario una cadena para evaluar. Se evalúa esta cadena en los tres autómatas y se muestra al usuario el resultado de la simulación así como los tiempos de ejecución. Luego de mostrar los resultados el usuario puede ingresar otra cadena para simular.
+El archivo parser.py toma como entrada un archivo de texto. Este primero ejecuta una función dentro de scanner para identificar los tokens dentro del archivo de entrada. Luego con estos tokens se ejecutan las funciones dentro de parser para parsear la entrada y mostrar los resultados dentro de la consola.
 
 ### Creación del árbol inicial
 Para crear el árbol se empieza por crear el nodo raíz y se le coloca toda la expresión regular como data. Luego se llama a un método recursivo que analiza el contenido del nodo raíz y empieza la división del contenido entre el hijo izquierdo y derecho. El nodo padre luego se queda con el operando mayor y se llama recursivamente el método de separación para sus dos hijos. Esto se realiza múltiples veces hasta que ya no se puede realizar otra separación.
