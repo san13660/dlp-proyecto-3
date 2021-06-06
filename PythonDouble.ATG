@@ -37,7 +37,7 @@ Expression<result> =			(.result1, result2 = [0], [0].)
 	}							(.result[0] = result1[0].)
 	.
 
-Term<result>=					(.result1,result2 = [0],[0].)
+Term<result>=					(.result1,result2 = [0], [0].)
 	Factor<result1>
 	{    "*"Factor<result2>		(.result1[0] *= result2[0].)
 	   | "/"Factor<result2>		(.result1[0] /= result2[0].)
